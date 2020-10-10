@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	inFlag := flag.String("input", "originals", "The directory of the input folder")
+	inFlag := flag.String("input", "input", "The directory of the input folder")
 	outFlag := flag.String("output", "packed", "The filename of the output json and png")
 	extrudeFlag := flag.Int("extrude", 1, "The amount to extrude each sprite")
 	flag.Parse()
@@ -22,23 +22,55 @@ func main() {
 	output := *outFlag
 	extrude := *extrudeFlag
 
-	size := 1024
-	atlasBounds := image.Rect(0, 0, size, 32)
-	atlas := image.NewNRGBA(atlasBounds)
+	width := 1024
+	height := 32
 
+	// Get all images to pack
+	images := make([]ImageData, 0)
+	files := GetFileList(fmt.Sprintf("./%s/", directory))
+	for _, file := range files {
+		img := LoadImage(fmt.Sprintf("./%s/%s", directory, file))
+		images = append(images, ImageData{img, file})
+	}
+
+	// Pack all images
+	atlas, data := Pack(images, width, height, extrude)
+
+	jsonFile, err := os.Create(fmt.Sprintf("%s.json", output))
+	if err != nil { log.Fatal(err) }
+
+	b, err := json.Marshal(data)
+	if err != nil { log.Fatal(err) }
+	jsonFile.Write(b)
+
+	outputFile, err := os.Create(fmt.Sprintf("%s.png", output))
+	if err != nil { log.Fatal(err) }
+	png.Encode(outputFile, atlas)
+	outputFile.Close()
+}
+
+type ImageData struct {
+	img image.Image
+	filename string
+}
+
+func Pack(images []ImageData, width, height, extrude int) (image.Image, SerializedSpritesheet) {
 	data := SerializedSpritesheet{
 		Frames: make(map[string]SerializedFrame),
 		Meta: make(map[string]interface{}),
 	}
 	data.Meta["protocol"] = "github.com/jstewart7/packer"
 
-	currentBounds := image.Rectangle{}
+	atlasBounds := image.Rect(0, 0, width, height)
+	atlas := image.NewNRGBA(atlasBounds)
 
-	currentPos := image.Point{0,0}
-	files := GetFileList(fmt.Sprintf("./%s/", directory))
-	for _, file := range files {
-		img := LoadImage(fmt.Sprintf("./%s/%s", directory, file))
+	currentBounds := image.Rectangle{}
+	currentPos := image.Point{}
+	for _, imageData := range images {
+		img := imageData.img
 		origBounds := img.Bounds()
+
+		// Extrude image
 		img = ExtrudeImage(img, extrude)
 		extrudeBounds := img.Bounds()
 
@@ -49,7 +81,7 @@ func main() {
 
 		currentBounds = currentBounds.Union(destBounds)
 
-		data.Frames[file] = SerializedFrame{
+		data.Frames[imageData.filename] = SerializedFrame{
 			Frame: SerializedRect{
 				X: float64(destOrigBounds.Min.X),
 				Y: float64(destOrigBounds.Min.Y),
@@ -69,23 +101,23 @@ func main() {
 			},
 		}
 	}
-	log.Println(currentBounds)
 
-	jsonFile, err := os.Create(fmt.Sprintf("%s.json", output))
-	if err != nil { log.Fatal(err) }
+	// TODO - shrink final atlas down if possible
 
-	b, err := json.Marshal(data)
-	if err != nil { log.Fatal(err) }
-	jsonFile.Write(b)
-
-	outputFile, err := os.Create(fmt.Sprintf("%s.png", output))
-	if err != nil { log.Fatal(err) }
-	png.Encode(outputFile, atlas)
-	outputFile.Close()
+	return atlas, data
 }
 
-// TODO - only extrudes once
+// TODO - this is inefficient, but might not matter that much. I think most people will only extrude once
 func ExtrudeImage(img image.Image, extrude int) image.Image {
+	for i := 0; i < extrude; i++ {
+		img = ExtrudeImageOnce(img)
+	}
+	return img
+}
+
+// TODO - needs cleanup
+func ExtrudeImageOnce(img image.Image) image.Image {
+	extrude := 1
 	bounds := img.Bounds()
 	newImg := image.NewNRGBA(image.Rect(0, 0, bounds.Dx() + (2 * extrude), bounds.Dy() + (2 * extrude)))
 	dstBounds := newImg.Bounds()
