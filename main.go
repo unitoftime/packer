@@ -7,6 +7,8 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"sort"
+
 	"io/ioutil"
 	"encoding/json"
 	"flag"
@@ -23,18 +25,26 @@ func main() {
 	extrude := *extrudeFlag
 
 	width := 1024
-	height := 32
+	height := 1024
 
 	// Get all images to pack
 	images := make([]ImageData, 0)
 	files := GetFileList(fmt.Sprintf("./%s/", directory))
 	for _, file := range files {
 		img := LoadImage(fmt.Sprintf("./%s/%s", directory, file))
-		images = append(images, ImageData{img, file})
+		images = append(images, NewImageData(img, file))
+	}
+
+	for i := range images {
+		images[i].img = ExtrudeImage(images[i].img, extrude)
+		// images[i].extrudeBounds = images[i].img.Bounds()
+		images[i].extrudeOffset = image.Point{extrude, extrude}
 	}
 
 	// Pack all images
-	atlas, data := Pack(images, width, height, extrude)
+	images = NaiveGreedyPacker(images, width, height)
+
+	atlas, data := Pack(images, width, height)
 
 	jsonFile, err := os.Create(fmt.Sprintf("%s.json", output))
 	if err != nil { log.Fatal(err) }
@@ -52,9 +62,71 @@ func main() {
 type ImageData struct {
 	img image.Image
 	filename string
+	position image.Point
+	origBounds image.Rectangle
+	// extrudeBounds image.Rectangle
+	extrudeOffset image.Point
 }
 
-func Pack(images []ImageData, width, height, extrude int) (image.Image, SerializedSpritesheet) {
+func NewImageData(img image.Image, filename string) ImageData {
+	return ImageData{
+		img: img,
+		filename: filename,
+		position: image.Point{},
+		origBounds: img.Bounds(),
+	}
+}
+
+func NaiveGreedyPacker(images []ImageData, width, height int) []ImageData {
+	// 1. Sort rectangles based on order
+	// 2. loop through width,height rectangle and place them at first available position
+
+	// Sort
+	// TODO - test
+	sort.Slice(images, func(i, j int) bool { return (images[i].img.Bounds().Size().X * images[i].img.Bounds().Size().Y) < (images[j].img.Bounds().Size().X * images[j].img.Bounds().Size().Y) })
+
+	targetBounds := image.Rect(0, 0, width, height) // placed image must fall inside the targetBounds
+
+	placed := make([]ImageData, 0)
+	// Place Greedily
+	for i := range images {
+
+	attempt:
+		for x := 0; x < width; x++ {
+			for y := 0; y < height; y++ {
+
+				success := true
+
+				// Check if we can place it here
+				attemptPos := image.Point{x,y}
+				attemptRect := images[i].img.Bounds().Add(attemptPos)
+				if !attemptRect.In(targetBounds) {
+					// If the attempt rectangle isn't fully inside the target rect, then fail this position
+					continue
+				}
+
+				for _,placedImg := range placed {
+					if attemptRect.Overlaps(placedImg.img.Bounds().Add(placedImg.position)) {
+						// If there is ever an overlap then break
+						success = false
+						break
+					}
+				}
+
+				// If we were successful in placing, then place it officially
+				if success {
+					images[i].position = attemptPos
+					placed = append(placed, images[i])
+					break attempt
+				}
+			}
+		}
+	}
+
+	return placed
+}
+
+func Pack(images []ImageData, width, height int) (image.Image, SerializedSpritesheet) {
 	data := SerializedSpritesheet{
 		Frames: make(map[string]SerializedFrame),
 		Meta: make(map[string]interface{}),
@@ -65,19 +137,27 @@ func Pack(images []ImageData, width, height, extrude int) (image.Image, Serializ
 	atlas := image.NewNRGBA(atlasBounds)
 
 	currentBounds := image.Rectangle{}
-	currentPos := image.Point{}
+	// currentPos := image.Point{}
 	for _, imageData := range images {
-		img := imageData.img
-		origBounds := img.Bounds()
+		// img := imageData.img
+		// origBounds := img.Bounds()
 
 		// Extrude image
-		img = ExtrudeImage(img, extrude)
-		extrudeBounds := img.Bounds()
+		// img = ExtrudeImage(img, extrude)
+		// extrudeBounds := img.Bounds()
 
-		destOrigBounds := origBounds.Add(currentPos).Add(image.Point{extrude,extrude})
-		destBounds := extrudeBounds.Add(currentPos)
+		// destOrigBounds := origBounds.Add(currentPos).Add(image.Point{extrude,extrude})
+		// destBounds := extrudeBounds.Add(currentPos)
+		// draw.Draw(atlas, destBounds, img, image.ZP, draw.Src)
+		// currentPos.X += extrudeBounds.Dx()
+
+		img := imageData.img
+		extrudeBounds := img.Bounds()
+		destOrigBounds := imageData.origBounds.Add(imageData.position).Add(imageData.extrudeOffset)
+		destBounds := extrudeBounds.Add(imageData.position)
 		draw.Draw(atlas, destBounds, img, image.ZP, draw.Src)
-		currentPos.X += extrudeBounds.Dx()
+		// currentPos.X += extrudeBounds.Dx()
+
 
 		currentBounds = currentBounds.Union(destBounds)
 
