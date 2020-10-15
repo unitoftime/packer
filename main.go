@@ -92,10 +92,8 @@ func NaiveGreedyPacker(images []ImageData, width, height int) []ImageData {
 	for i := range images {
 
 	attempt:
-		for x := 0; x < width; x++ {
-			for y := 0; y < height; y++ {
-
-				success := true
+		for y := 0; y < height; y++ {
+			for x := 0; x < width; x++ {
 
 				// Check if we can place it here
 				attemptPos := image.Point{x,y}
@@ -105,20 +103,26 @@ func NaiveGreedyPacker(images []ImageData, width, height int) []ImageData {
 					continue
 				}
 
+				success := true
 				for _,placedImg := range placed {
-					if attemptRect.Overlaps(placedImg.img.Bounds().Add(placedImg.position)) {
+					placedRect := placedImg.img.Bounds().Add(placedImg.position)
+					if attemptRect.Overlaps(placedRect) {
 						// If there is ever an overlap then break
+
+						// However, we can safely increment X to the point after the image
+						x = placedRect.Max.X
+
 						success = false
 						break
 					}
 				}
 
+				if !success { continue }
+
 				// If we were successful in placing, then place it officially
-				if success {
-					images[i].position = attemptPos
-					placed = append(placed, images[i])
-					break attempt
-				}
+				images[i].position = attemptPos
+				placed = append(placed, images[i])
+				break attempt
 			}
 		}
 	}
