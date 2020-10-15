@@ -8,6 +8,7 @@ import (
 	"image/draw"
 	"image/png"
 	"sort"
+	"time"
 
 	"io/ioutil"
 	"encoding/json"
@@ -15,14 +16,18 @@ import (
 )
 
 func main() {
+	startTime := time.Now()
+
 	inFlag := flag.String("input", "input", "The directory of the input folder")
 	outFlag := flag.String("output", "packed", "The filename of the output json and png")
 	extrudeFlag := flag.Int("extrude", 1, "The amount to extrude each sprite")
+	statsFlag := flag.Bool("stats", false, "If true, display stats")
 	flag.Parse()
 
 	directory := *inFlag
 	output := *outFlag
 	extrude := *extrudeFlag
+	showStatistics := *statsFlag
 
 	width := 1024
 	height := 1024
@@ -57,6 +62,19 @@ func main() {
 	if err != nil { log.Fatal(err) }
 	png.Encode(outputFile, atlas)
 	outputFile.Close()
+
+
+	if showStatistics {
+		packedArea := 0
+		for i := range images {
+			packedArea += images[i].Area()
+		}
+
+		efficiency := float64(packedArea) / float64(width * height)
+
+		fmt.Println("Packing took:", time.Since(startTime))
+		fmt.Printf("Efficiency:   %.2f%%\n", 100 * efficiency)
+	}
 }
 
 type ImageData struct {
@@ -77,13 +95,18 @@ func NewImageData(img image.Image, filename string) ImageData {
 	}
 }
 
+func (i *ImageData) Area() int {
+	size := i.img.Bounds().Size()
+	return size.X * size.Y
+}
+
 func NaiveGreedyPacker(images []ImageData, width, height int) []ImageData {
 	// 1. Sort rectangles based on order
 	// 2. loop through width,height rectangle and place them at first available position
 
-	// Sort
+	// Sort by area
 	// TODO - test
-	sort.Slice(images, func(i, j int) bool { return (images[i].img.Bounds().Size().X * images[i].img.Bounds().Size().Y) < (images[j].img.Bounds().Size().X * images[j].img.Bounds().Size().Y) })
+	sort.Slice(images, func(i, j int) bool { return (images[i].Area()) < (images[j].Area()) })
 
 	targetBounds := image.Rect(0, 0, width, height) // placed image must fall inside the targetBounds
 
