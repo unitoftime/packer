@@ -22,6 +22,7 @@ func main() {
 	outFlag := flag.String("output", "packed", "The filename of the output json and png")
 	extrudeFlag := flag.Int("extrude", 1, "The amount to extrude each sprite")
 	statsFlag := flag.Bool("stats", false, "If true, display stats")
+	sizeFlag := flag.Int("size", 1024, "The width and height of the packed atlas")
 	flag.Parse()
 
 	directory := *inFlag
@@ -29,8 +30,8 @@ func main() {
 	extrude := *extrudeFlag
 	showStatistics := *statsFlag
 
-	width := 1024
-	height := 1024
+	width := *sizeFlag
+	height := *sizeFlag
 
 	// Get all images to pack
 	images := make([]ImageData, 0)
@@ -39,6 +40,12 @@ func main() {
 		img := LoadImage(fmt.Sprintf("./%s/%s", directory, file))
 		images = append(images, NewImageData(img, file))
 	}
+
+	// Sort images by their filename, so that there is some sort of determinism on input of files
+	// TODO - this might be automatic, but I haven't tested it cross platform. Maybe check docs
+	sort.Slice(images, func(i, j int) bool {
+		return images[i].filename < images[j].filename
+	})
 
 	for i := range images {
 		images[i].img = ExtrudeImage(images[i].img, extrude)
