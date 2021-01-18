@@ -112,8 +112,7 @@ func NaiveGreedyPacker(images []ImageData, width, height int) []ImageData {
 	// 2. loop through width,height rectangle and place them at first available position
 
 	// Sort by area
-	// TODO - test
-	sort.Slice(images, func(i, j int) bool { return (images[i].Area()) < (images[j].Area()) })
+	sort.Slice(images, func(i, j int) bool { return (images[i].Area()) > (images[j].Area()) })
 
 	targetBounds := image.Rect(0, 0, width, height) // placed image must fall inside the targetBounds
 
