@@ -3,8 +3,9 @@ This is a work in progress texture packing standalone. Right now the packing alg
 
 ### Install
 ```
-go get github.com/jstewart7/packer
+go get github.com/jstewart7/packer/...
 ```
+Note: the binary is held in `cmd/packer/` so the suffix `/...` is required to install the `packer` binary to your go path.
 ### Usage
 Basic
 ```
