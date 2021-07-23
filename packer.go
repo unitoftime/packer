@@ -95,8 +95,9 @@ func BasicScanlinePacker(images []ImageData, width, height int) []ImageData {
 	return placed
 }
 
-func Pack(images []ImageData, width, height int) (image.Image, SerializedSpritesheet) {
+func Pack(imageName string, images []ImageData, width, height int) (image.Image, SerializedSpritesheet) {
 	data := SerializedSpritesheet{
+		ImageName: imageName,
 		Frames: make(map[string]SerializedFrame),
 		Meta: make(map[string]interface{}),
 	}
@@ -231,6 +232,7 @@ type SerializedFrame struct {
 	Pivot SerializedPos
 }
 type SerializedSpritesheet struct {
+	ImageName string
 	Frames map[string]SerializedFrame
 	Meta map[string]interface{}
 }

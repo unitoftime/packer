@@ -49,7 +49,9 @@ func main() {
 	// Pack all images
 	images = packer.BasicScanlinePacker(images, width, height)
 
-	atlas, data := packer.Pack(images, width, height)
+	imageName := fmt.Sprintf("%s.png", output)
+
+	atlas, data := packer.Pack(imageName, images, width, height)
 
 	jsonFile, err := os.Create(fmt.Sprintf("%s.json", output))
 	if err != nil { log.Fatal(err) }
@@ -58,7 +60,7 @@ func main() {
 	if err != nil { log.Fatal(err) }
 	jsonFile.Write(b)
 
-	outputFile, err := os.Create(fmt.Sprintf("%s.png", output))
+	outputFile, err := os.Create(imageName)
 	if err != nil { log.Fatal(err) }
 	png.Encode(outputFile, atlas)
 	outputFile.Close()
