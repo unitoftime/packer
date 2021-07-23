@@ -1,88 +1,10 @@
-package main
+package packer
 
 import (
-	"log"
-	"fmt"
-	"os"
 	"image"
 	"image/draw"
-	"image/png"
 	"sort"
-	"time"
-
-	"io/ioutil"
-	"encoding/json"
-	"flag"
 )
-
-func main() {
-	startTime := time.Now()
-
-	inFlag := flag.String("input", "input", "The directory of the input folder")
-	outFlag := flag.String("output", "packed", "The filename of the output json and png")
-	extrudeFlag := flag.Int("extrude", 1, "The amount to extrude each sprite")
-	statsFlag := flag.Bool("stats", false, "If true, display stats")
-	sizeFlag := flag.Int("size", 1024, "The width and height of the packed atlas")
-	flag.Parse()
-
-	directory := *inFlag
-	output := *outFlag
-	extrude := *extrudeFlag
-	showStatistics := *statsFlag
-
-	width := *sizeFlag
-	height := *sizeFlag
-
-	// Get all images to pack
-	images := make([]ImageData, 0)
-	files := GetFileList(fmt.Sprintf("./%s/", directory))
-	for _, file := range files {
-		img := LoadImage(fmt.Sprintf("./%s/%s", directory, file))
-		images = append(images, NewImageData(img, file))
-	}
-
-	// Sort images by their filename, so that there is some sort of determinism on input of files
-	// TODO - this might be automatic, but I haven't tested it cross platform. Maybe check docs
-	sort.Slice(images, func(i, j int) bool {
-		return images[i].filename < images[j].filename
-	})
-
-	for i := range images {
-		images[i].img = ExtrudeImage(images[i].img, extrude)
-		// images[i].extrudeBounds = images[i].img.Bounds()
-		images[i].extrudeOffset = image.Point{extrude, extrude}
-	}
-
-	// Pack all images
-	images = NaiveGreedyPacker(images, width, height)
-
-	atlas, data := Pack(images, width, height)
-
-	jsonFile, err := os.Create(fmt.Sprintf("%s.json", output))
-	if err != nil { log.Fatal(err) }
-
-	b, err := json.Marshal(data)
-	if err != nil { log.Fatal(err) }
-	jsonFile.Write(b)
-
-	outputFile, err := os.Create(fmt.Sprintf("%s.png", output))
-	if err != nil { log.Fatal(err) }
-	png.Encode(outputFile, atlas)
-	outputFile.Close()
-
-
-	if showStatistics {
-		packedArea := 0
-		for i := range images {
-			packedArea += images[i].Area()
-		}
-
-		efficiency := float64(packedArea) / float64(width * height)
-
-		fmt.Println("Packing took:", time.Since(startTime))
-		fmt.Printf("Efficiency:   %.2f%%\n", 100 * efficiency)
-	}
-}
 
 type ImageData struct {
 	img image.Image
@@ -107,7 +29,21 @@ func (i *ImageData) Area() int {
 	return size.X * size.Y
 }
 
-func NaiveGreedyPacker(images []ImageData, width, height int) []ImageData {
+func PrepareImageList(images []ImageData, extrude int) {
+	// Sort images by their filename, so that there is some sort of determinism on input of files
+	// TODO - this might be automatic, but I haven't tested it cross platform. Maybe check docs
+	sort.Slice(images, func(i, j int) bool {
+		return images[i].filename < images[j].filename
+	})
+
+	for i := range images {
+		images[i].img = ExtrudeImage(images[i].img, extrude)
+		// images[i].extrudeBounds = images[i].img.Bounds()
+		images[i].extrudeOffset = image.Point{extrude, extrude}
+	}
+}
+
+func BasicScanlinePacker(images []ImageData, width, height int) []ImageData {
 	// 1. Sort rectangles based on order
 	// 2. loop through width,height rectangle and place them at first available position
 
@@ -274,32 +210,6 @@ func ExtrudeImageOnce(img image.Image) image.Image {
 	}
 
 	return newImg
-}
-
-func GetFileList(directory string) []string {
-	files, err := ioutil.ReadDir(directory)
-	if err != nil { panic(err) }
-
-	list := make([]string, 0)
-	for _, file := range files {
-		list = append(list, file.Name())
-	}
-	return list
-}
-
-func LoadImage(filename string) image.Image {
-	file, err := os.Open(filename)
-	if err != nil {
-		log.Fatal("Error Opening File: ", filename, " ", err)
-	}
-	defer file.Close()
-
-	loaded, _, err := image.Decode(file)
-	if err != nil {
-		log.Fatal("Error Decoding File: ", filename, " ",  err)
-	}
-
-	return loaded
 }
 
 type SerializedRect struct {
