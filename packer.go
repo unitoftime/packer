@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 	"sort"
+	"path"
 )
 
 type ImageData struct {
@@ -97,7 +98,7 @@ func BasicScanlinePacker(images []ImageData, width, height int) []ImageData {
 
 func Pack(imageName string, images []ImageData, width, height int) (image.Image, SerializedSpritesheet) {
 	data := SerializedSpritesheet{
-		ImageName: imageName,
+		ImageName: path.Base(imageName),
 		Frames: make(map[string]SerializedFrame),
 		Meta: make(map[string]interface{}),
 	}
