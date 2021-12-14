@@ -102,7 +102,7 @@ func Pack(imageName string, images []ImageData, width, height int) (image.Image,
 		Frames: make(map[string]SerializedFrame),
 		Meta: make(map[string]interface{}),
 	}
-	data.Meta["protocol"] = "github.com/jstewart7/packer"
+	data.Meta["protocol"] = "github.com/unitoftime/packer"
 
 	atlasBounds := image.Rect(0, 0, width, height)
 	atlas := image.NewNRGBA(atlasBounds)

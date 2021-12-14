@@ -1,3 +1,3 @@
-module github.com/jstewart7/packer
+module github.com/unitoftime/packer
 
 go 1.16
