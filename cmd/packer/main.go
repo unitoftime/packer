@@ -22,6 +22,7 @@ func main() {
 	extrudeFlag := flag.Int("extrude", 1, "The amount to extrude each sprite")
 	statsFlag := flag.Bool("stats", false, "If true, display stats")
 	sizeFlag := flag.Int("size", 1024, "The width and height of the packed atlas")
+	mountPoint := flag.Bool("mountpoints", false, "If set, the program will analyze color-based mountpoints")
 	flag.Parse()
 
 	directory := *inFlag
@@ -44,39 +45,51 @@ func main() {
 		images = append(images, packer.NewImageData(img, file))
 	}
 
-	packer.PrepareImageList(images, extrude)
+	if !*mountPoint {
+		packer.PrepareImageList(images, extrude)
 
-	// Pack all images
-	images = packer.BasicScanlinePacker(images, width, height)
+		// Pack all images
+		images = packer.BasicScanlinePacker(images, width, height)
 
-	imageName := fmt.Sprintf("%s.png", output)
+		imageName := fmt.Sprintf("%s.png", output)
 
-	atlas, data := packer.Pack(imageName, images, width, height)
+		atlas, data := packer.Pack(imageName, images, width, height)
 
-	jsonFile, err := os.Create(fmt.Sprintf("%s.json", output))
-	if err != nil { log.Fatal(err) }
+		jsonFile, err := os.Create(fmt.Sprintf("%s.json", output))
+		if err != nil { log.Fatal(err) }
 
-	b, err := json.Marshal(data)
-	if err != nil { log.Fatal(err) }
-	jsonFile.Write(b)
+		b, err := json.Marshal(data)
+		if err != nil { log.Fatal(err) }
+		jsonFile.Write(b)
 
-	outputFile, err := os.Create(imageName)
-	if err != nil { log.Fatal(err) }
-	png.Encode(outputFile, atlas)
-	outputFile.Close()
+		outputFile, err := os.Create(imageName)
+		if err != nil { log.Fatal(err) }
+		png.Encode(outputFile, atlas)
+		outputFile.Close()
+	} else {
+		// Mountpoint mode
+		mountFrames := packer.CalculateMountPoints(images)
 
+		jsonFile, err := os.Create(fmt.Sprintf("%s.json", output))
+		if err != nil { log.Fatal(err) }
 
-	if showStatistics {
-		packedArea := 0
-		for i := range images {
-			packedArea += images[i].Area()
+		b, err := json.Marshal(mountFrames)
+		if err != nil { log.Fatal(err) }
+		jsonFile.Write(b)
+	}
+
+		if showStatistics {
+			packedArea := 0
+			for i := range images {
+				packedArea += images[i].Area()
+			}
+
+			efficiency := float64(packedArea) / float64(width * height)
+
+			fmt.Println("Packing took:", time.Since(startTime))
+			fmt.Printf("Efficiency:   %.2f%%\n", 100 * efficiency)
 		}
 
-		efficiency := float64(packedArea) / float64(width * height)
-
-		fmt.Println("Packing took:", time.Since(startTime))
-		fmt.Printf("Efficiency:   %.2f%%\n", 100 * efficiency)
-	}
 }
 
 func GetFileList(directory string) []string {

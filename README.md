@@ -3,7 +3,7 @@ This is a work in progress texture packing standalone. Right now the packing alg
 
 ### Install
 ```
-go get github.com/unitoftime/packer/...
+go install github.com/unitoftime/packer/cmd/packer@latest
 ```
 Note: the binary is held in `cmd/packer/` so the suffix `/...` is required to install the `packer` binary to your go path.
 ### Usage
