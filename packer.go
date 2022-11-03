@@ -206,7 +206,7 @@ func ExtrudeImageOnce(img image.Image) image.Image {
 
 	xSrc = bounds.Dx()-1
 	xDst = dstBounds.Dx()-1
-	for ySrc := 0; ySrc < bounds.Dx(); ySrc++ {
+	for ySrc := 0; ySrc < bounds.Dy(); ySrc++ {
 		yDst := ySrc+1
 		newImg.Set(xDst, yDst, img.At(xSrc, ySrc))
 	}
