@@ -57,7 +57,6 @@ func main() {
 			images = packer.BasicScanlinePacker(images, width, height)
 		}
 
-
 		imageName := fmt.Sprintf("%s.png", output)
 
 		atlas, data := packer.Pack(imageName, images, width, height)
