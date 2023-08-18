@@ -44,6 +44,45 @@ func PrepareImageList(images []ImageData, extrude int) {
 	}
 }
 
+func RowWisePacker(images []ImageData, width, height int) []ImageData {
+	// 1. Sort by area
+	// 2. Pack as many as we can into a row, then go to the next row
+
+	// Sort by area
+	sort.Slice(images, func(i, j int) bool { return (images[i].Area()) > (images[j].Area()) })
+
+	targetBounds := image.Rect(0, 0, width, height) // placed image must fall inside the targetBounds
+
+	placed := make([]ImageData, 0)
+
+	currentPos := image.Point{0, 0}
+	nextRow := 0
+	// Place Greedily
+	for i := 0; i < len(images); i++ {
+		attemptRect := images[i].img.Bounds().Add(currentPos)
+		if !attemptRect.In(targetBounds) {
+			// If the attempt rectangle isn't fully inside the target rect, then fail this position
+			// So we go to the next row
+			currentPos.X = 0
+			currentPos.Y = nextRow
+			i-- // Try again
+			continue
+		}
+
+		// Track the rect which pushed the row down the furthest
+		if nextRow < attemptRect.Max.Y {
+			nextRow = attemptRect.Max.Y
+		}
+
+		// If we were successful in placing, then place it officially
+		images[i].position = currentPos
+		placed = append(placed, images[i])
+		currentPos.X = attemptRect.Max.X
+	}
+
+	return placed
+}
+
 func BasicScanlinePacker(images []ImageData, width, height int) []ImageData {
 	// 1. Sort rectangles based on order
 	// 2. loop through width,height rectangle and place them at first available position

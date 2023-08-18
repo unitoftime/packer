@@ -23,12 +23,14 @@ func main() {
 	statsFlag := flag.Bool("stats", false, "If true, display stats")
 	sizeFlag := flag.Int("size", 1024, "The width and height of the packed atlas")
 	mountPoint := flag.Bool("mountpoints", false, "If set, the program will analyze color-based mountpoints")
+	typeFlag := flag.String("type", "scanline", "Select packer type: scanline, row")
 	flag.Parse()
 
 	directory := *inFlag
 	output := *outFlag
 	extrude := *extrudeFlag
 	showStatistics := *statsFlag
+	packerType := *typeFlag
 
 	width := *sizeFlag
 	height := *sizeFlag
@@ -49,7 +51,12 @@ func main() {
 		packer.PrepareImageList(images, extrude)
 
 		// Pack all images
-		images = packer.BasicScanlinePacker(images, width, height)
+		if packerType == "row" {
+			images = packer.RowWisePacker(images, width, height)
+		} else {
+			images = packer.BasicScanlinePacker(images, width, height)
+		}
+
 
 		imageName := fmt.Sprintf("%s.png", output)
 
